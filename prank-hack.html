@@ -1,0 +1,469 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Ransomware By Arta</title>
+<style>
+  :root{
+    --red:#c62828;
+    --accent:#ffcc00;
+    --bg:#000;
+  }
+  html,body{
+    height:100%;
+    margin:0;
+    font-family: "Segoe UI", Roboto, Arial, monospace;
+    background:var(--bg);
+    color:#eee;
+    overflow:hidden;
+  }
+
+  /* MATRIX BACKGROUND */
+  #matrixCanvas{
+    position:fixed;
+    inset:0;
+    width:100%;
+    height:100%;
+    z-index:0;
+    background:black;
+  }
+
+  /* LANDING */
+  .landing{
+    position:relative;
+    z-index:1;
+    height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    flex-direction:column;
+    gap:14px;
+    text-align:center;
+    padding:18px;
+  }
+  .warn-icon{ font-size:84px; color:var(--red); text-shadow:0 6px 22px rgba(198,40,40,0.6) }
+  .title{ font-size:26px; color:var(--red); font-weight:800; letter-spacing:0.6px }
+  .subtitle{ max-width:860px; font-size:14px; color:#ddd; opacity:0.95 }
+
+  .controls{ display:flex; gap:12px; margin-top:12px; justify-content:center; flex-wrap:wrap }
+  button{ padding:10px 16px; border-radius:8px; border:0; cursor:pointer; font-weight:800 }
+  .btn-open{ background:#ffeb3b; color:#111 }
+  .btn-contact{ background:var(--red); color:#fff }
+  .btn-info{ background:rgba(255,255,255,0.06); color:#fff }
+
+  /* RANSOM SCREEN */
+  #ransomScreen{
+    position:fixed;
+    inset:0;
+    z-index:5;
+    display:none;
+    background: linear-gradient(180deg, rgba(22,0,0,0.98), rgba(10,0,0,0.98));
+    color:#fff;
+    overflow:hidden;
+  }
+  .ransom-wrap{ max-width:1100px; margin:32px auto; padding:28px; text-align:center; position:relative; }
+  .ransom-flag{ font-size:64px; color:var(--red); margin-bottom:6px }
+  .ransom-title{ font-size:38px; font-weight:900; color:#fff; margin-bottom:6px }
+  .ransom-desc{ color:#ffdede; max-width:920px; margin:12px auto; font-size:16px }
+  .wallet-box{ background:rgba(0,0,0,0.18); padding:12px 16px; margin:18px auto; border-radius:8px; display:inline-block; font-weight:700 }
+
+  .countdown{ margin-top:16px; font-size:34px; color:#fff59d; font-weight:800 }
+
+  .file-list{
+    margin-top:22px;
+    text-align:left;
+    max-width:820px;
+    margin-left:auto; margin-right:auto;
+    background:rgba(0,0,0,0.18); padding:12px; border-radius:8px;
+    color:#cfe; height:220px; overflow:auto; font-family:monospace; box-shadow:0 8px 30px rgba(0,0,0,0.6);
+  }
+
+  .ransom-buttons{ margin-top:20px; display:flex; gap:12px; justify-content:center; flex-wrap:wrap }
+  .btn-pay{ background:var(--accent); color:#111; padding:12px 20px; border-radius:8px; font-weight:900 }
+  .btn-hubungi{ background:transparent; color:#fff; border:1px solid rgba(255,255,255,0.12); padding:12px 18px; border-radius:8px }
+  .btn-back{ background:rgba(255,255,255,0.06); color:#fff; padding:12px 18px; border-radius:8px }
+
+  /* VIDEO (tidak fullscreen) */
+  #videoContainer{
+    position:absolute;
+    z-index:6;
+    width:360px;
+    height:202px; /* 16:9 */
+    border-radius:8px;
+    overflow:hidden;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.7);
+    background:#000;
+    display:none;
+    pointer-events:none; /* biar tombol tetap bisa diklik */
+    transition: transform 1s cubic-bezier(.22,.9,.35,1), left 1s, top 1s;
+  }
+  #videoContainer video{ width:100%; height:100%; display:block; object-fit:cover; }
+
+  /* PRANK NOTE & MODAL */
+  .prank-note{ position:fixed; left:12px; bottom:12px; z-index:9; background:rgba(0,0,0,0.6); color:#fff; padding:6px 10px; border-radius:8px; font-size:12px }
+  #modal{ position:fixed; inset:0; z-index:9999; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,0.6) }
+  .modal-card{ background:#111; padding:18px; border-radius:8px; width:min(720px,94%); color:#fff; text-align:left }
+  .modal-header{ font-weight:800; margin-bottom:8px; color:var(--red) }
+  .modal-actions{ text-align:right }
+  .btn-close-modal{ background:#ffeb3b; color:#111; padding:8px 12px; border-radius:6px; border:0; cursor:pointer }
+
+  /* responsive */
+  @media (max-width:520px){
+    #videoContainer{ width:260px; height:146px; }
+    .ransom-title{ font-size:24px }
+    .ransom-flag{ font-size:44px }
+    .countdown{ font-size:22px }
+    .file-list{ height:140px }
+  }
+</style>
+</head>
+<body>
+
+<canvas id="matrixCanvas" aria-hidden="true"></canvas>
+
+<!-- Landing -->
+<div class="landing" id="landing">
+  <div class="warn-icon">⚠</div>
+  <div class="title">PERANGKAT ANDA TELAH DIAMBIL ALIH OLEH ZALIEN</div>
+  <div class="subtitle">Sistem mendeteksi intrusi. <strong>Hack By Zalien</strong> — tidak melakukan perubahan nyata pada file Anda. Tekan OPEN untuk melihat tampilan ransomware.</div>
+  <div class="controls" aria-hidden="false">
+    <button class="btn-open" id="btnOpen">OPEN</button>
+    <button class="btn-contact" id="btnContact">Hubungi Hacker</button>
+    <button class="btn-info" id="btnInfo">Keterangan</button>
+  </div>
+</div>
+
+<!-- Ransom screen -->
+<div id="ransomScreen" role="dialog" aria-modal="true" aria-hidden="true">
+  <div class="ransom-wrap">
+    <div class="ransom-flag">⚠</div>
+    <div class="ransom-title">FILE ANDA TELAH DIENKRIPSI!</div>
+    <div class="ransom-desc">Semua file penting di perangkat ini telah dienkripsi. Untuk mendapatkan kembali file, ikuti instruksi di bawah. Jika tidak membayar dalam waktu yang ditentukan, file akan dihapus permanen.</div>
+
+    <div class="wallet-box">Alamat pembayaran (palsu):<br><code id="walletAddr">ALAMAT_PALSUKU_1A2B3C4D5E</code></div>
+
+    <div class="countdown" id="countdown">24:00:00</div>
+
+    <div class="file-list" id="fileList" aria-live="polite"></div>
+
+    <div class="ransom-buttons">
+      <button class="btn-pay" id="btnPay">Bayar Sekarang</button>
+      <button class="btn-hubungi" id="btnHubungi">Hubungi Hacker</button>
+      <button class="btn-back" id="btnBackFromRansom">Kembali</button>
+    </div>
+
+    <div style="margin-top:18px;color:rgba(255,255,255,0.85);font-size:12px;">
+      <strong>Catatan:</strong> Ini hanya PRANK / DEMO — tidak ada file yang dienkripsi. Tekan <kbd>Esc</kbd> untuk keluar kapan saja.
+    </div>
+  </div>
+</div>
+
+<!-- Video container (tidak fullscreen, bergerak acak) -->
+<div id="videoContainer" aria-hidden="true">
+  <video id="prankVideo" preload="auto" playsinline webkit-playsinline muted>
+    <source src="https://files.catbox.moe/d16tjf.mp4" type="video/mp4">
+    Browser Anda tidak mendukung pemutaran video.
+  </video>
+</div>
+
+<div class="prank-note">PRANK / DEMO — TIDAK NYATA</div>
+
+<!-- modal -->
+<div id="modal" role="dialog" aria-hidden="true">
+  <div class="modal-card">
+    <div class="modal-header" id="modalTitle">Pesan</div>
+    <div class="modal-body" id="modalBody">Ini hanyalah demo prank. Jangan melakukan pembayaran atau menyerahkan data.</div>
+    <div class="modal-actions">
+      <button class="btn-close-modal" id="modalClose">Tutup</button>
+    </div>
+  </div>
+</div>
+
+<!-- Ambient sounds (optional) -->
+<audio id="typingAudio" loop preload="auto">
+  <source src="https://www.soundjay.com/mechanical/sounds/keyboard-1.mp3" type="audio/mpeg">
+</audio>
+<audio id="sirenAudio" loop preload="auto">
+  <source src="https://www.soundjay.com/transportation/sounds/siren-01.mp3" type="audio/mpeg">
+</audio>
+
+<script>
+/* ================= Matrix background ================= */
+const canvas = document.getElementById('matrixCanvas');
+const ctx = canvas.getContext('2d');
+const fontSize = 16;
+let cols = Math.floor(window.innerWidth / fontSize);
+let drops = new Array(cols).fill(1);
+const letters = 'アカサタナハマヤラワ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+
+function resizeCanvas(){
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  cols = Math.floor(canvas.width / fontSize);
+  drops = new Array(cols).fill(1);
+}
+function drawMatrix(){
+  ctx.fillStyle = 'rgba(0,0,0,0.06)';
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+  ctx.fillStyle = '#0F0';
+  ctx.font = fontSize + 'px monospace';
+  for(let i=0;i<drops.length;i++){
+    const text = letters.charAt(Math.floor(Math.random()*letters.length));
+    ctx.fillText(text, i*fontSize, drops[i]*fontSize);
+    if(drops[i]*fontSize > canvas.height && Math.random() > 0.975){ drops[i] = 0; }
+    drops[i]++;
+  }
+}
+resizeCanvas();
+let matrixInterval = setInterval(drawMatrix, 33);
+window.addEventListener('resize', resizeCanvas);
+
+/* ================= Elements & audio ================= */
+const btnOpen = document.getElementById('btnOpen');
+const btnContact = document.getElementById('btnContact');
+const btnInfo = document.getElementById('btnInfo');
+
+const ransomScreen = document.getElementById('ransomScreen');
+const fileListEl = document.getElementById('fileList');
+const countdownEl = document.getElementById('countdown');
+
+const modal = document.getElementById('modal');
+const modalTitle = document.getElementById('modalTitle');
+const modalBody = document.getElementById('modalBody');
+const modalClose = document.getElementById('modalClose');
+
+const btnPay = document.getElementById('btnPay');
+const btnHubungi = document.getElementById('btnHubungi');
+const btnBackFromRansom = document.getElementById('btnBackFromRansom');
+
+const videoContainer = document.getElementById('videoContainer');
+const prankVideo = document.getElementById('prankVideo');
+
+const typingAudio = document.getElementById('typingAudio');
+const sirenAudio = document.getElementById('sirenAudio');
+
+function tryPlayAudio(el){
+  if(!el) return;
+  el.currentTime = 0;
+  const p = el.play();
+  if(p && p.catch) p.catch(()=>{/* autoplay blocked — will play after interaction */});
+}
+
+/* ============== Handlers ============== */
+btnOpen.addEventListener('click', startFakeRansom);
+btnContact.addEventListener('click', () => {
+  showModal('Hubungi Hacker', 'Hubungi oii. (Ini hanya demo — jangan hubungi.)');
+});
+btnInfo.addEventListener('click', () => {
+  showModal('Keterangan', 'Tekan OPEN untuk melihat demo ransomware palsu. Tekan Esc untuk kembali.');
+});
+modalClose.addEventListener('click', closeModal);
+
+btnPay.addEventListener('click', () => {
+  showModal('Bayar (palsu)', 'Tautan pembayaran ini palsu — jangan melakukan pembayaran nyata.');
+});
+btnHubungi.addEventListener('click', () => {
+  showModal('Hubungi Hacker', 'Hubungi oii. (PRANK)');
+});
+btnBackFromRansom.addEventListener('click', exitRansom);
+
+/* ============== Fake ransomware flow ============== */
+let countdownInterval;
+const fakeFiles = [
+  "C:\\Users\\Andre\\Documents\\laporan_keuangan.xlsx",
+  "C:\\Users\\Andre\\Pictures\\liburan.jpg",
+  "C:\\Users\\Andre\\Desktop\\notes.txt",
+  "C:\\Users\\Andre\\Videos\\ulangtahun.mp4",
+  "C:\\Projects\\secret_project\\design.psd",
+  "C:\\Users\\Andre\\Downloads\\akun_pw_list.csv",
+  "D:\\Music\\favorit.mp3",
+  "/home/andre/private/id_rsa",
+  "/var/www/html/config.php",
+  "/etc/passwd",
+  "E:\\Backup\\2024\\db_dump.sql",
+  "C:\\Users\\Andre\\Documents\\proposal_final.docx"
+];
+
+function startFakeRansom(){
+  // show ransom screen
+  ransomScreen.style.display = 'block';
+  ransomScreen.setAttribute('aria-hidden','false');
+
+  // start ambient sounds & video (user already clicked OPEN => allowed)
+  tryPlayAudio(typingAudio);
+  tryPlayAudio(sirenAudio);
+
+  // show & start video (muted initially to avoid autoplay issues on some devices;
+  // we unmute after user gesture if allowed)
+  videoContainer.style.display = 'block';
+  positionVideoRandom(); // initial pos
+  try{
+    prankVideo.muted = false;
+    prankVideo.loop = true;
+    prankVideo.play().catch(()=>{ // if blocked, unmute on next user interaction
+      prankVideo.muted = true;
+      prankVideo.play().catch(()=>{});
+    });
+  }catch(e){/* ignore */ }
+
+  // start fake file encryption animation
+  fileListEl.textContent = '';
+  startFakeFileEncryption();
+
+  // start countdown (24 jam)
+  startCountdown(24*60*60);
+  // start moving video periodically
+  startVideoRandomMovement();
+}
+
+/* fake file animation */
+let fileInterval;
+function startFakeFileEncryption(){
+  let idx = 0;
+  clearInterval(fileInterval);
+  fileInterval = setInterval(() => {
+    if(idx < fakeFiles.length){
+      fileListEl.textContent += `[*] Mengenkripsi: ${fakeFiles[idx]}\n`;
+      fileListEl.scrollTop = fileListEl.scrollHeight;
+      idx++;
+    } else {
+      clearInterval(fileInterval);
+      fileListEl.textContent += "\n[*] Semua file selesai dienkripsi.\n";
+      fileListEl.scrollTop = fileListEl.scrollHeight;
+      typingAudio.pause();
+    }
+  }, 700);
+}
+
+/* countdown */
+function startCountdown(seconds){
+  let remaining = seconds;
+  clearInterval(countdownInterval);
+  function tick(){
+    if(remaining < 0){
+      clearInterval(countdownInterval);
+      countdownEl.textContent = "WAKTU HABIS!";
+      return;
+    }
+    const h = String(Math.floor(remaining/3600)).padStart(2,'0');
+    const m = String(Math.floor((remaining%3600)/60)).padStart(2,'0');
+    const s = String(remaining%60).padStart(2,'0');
+    countdownEl.textContent = `${h}:${m}:${s}`;
+    remaining--;
+  }
+  tick();
+  countdownInterval = setInterval(tick,1000);
+}
+
+/* video random movement */
+let videoMoveInterval;
+function positionVideoRandom(){
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  const elW = videoContainer.offsetWidth;
+  const elH = videoContainer.offsetHeight;
+  // keep inside visible area with margins
+  const margin = 24;
+  const maxX = Math.max(margin, vw - elW - margin);
+  const maxY = Math.max(margin, vh - elH - margin);
+  const x = Math.floor(Math.random() * (maxX - margin + 1)) + margin;
+  const y = Math.floor(Math.random() * (maxY - margin + 1)) + margin;
+  // set via left/top for simpler positioning
+  videoContainer.style.left = x + 'px';
+  videoContainer.style.top = y + 'px';
+  // use transform to animate smooth
+  videoContainer.style.transform = 'translate(0,0)';
+}
+function startVideoRandomMovement(){
+  clearInterval(videoMoveInterval);
+  // move every 2500-4500ms randomly
+  videoMoveInterval = setInterval(() => {
+    // choose new pos
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const elW = videoContainer.offsetWidth;
+    const elH = videoContainer.offsetHeight;
+    const margin = 24;
+    const maxX = Math.max(margin, vw - elW - margin);
+    const maxY = Math.max(margin, vh - elH - margin);
+    const x = Math.floor(Math.random() * (maxX - margin + 1)) + margin;
+    const y = Math.floor(Math.random() * (maxY - margin + 1)) + margin;
+    // animate via CSS transition (already set in style)
+    videoContainer.style.left = x + 'px';
+    videoContainer.style.top = y + 'px';
+  }, 3000 + Math.floor(Math.random()*1500));
+}
+
+/* stop movement */
+function stopVideoMovement(){
+  clearInterval(videoMoveInterval);
+}
+
+/* exit ransom */
+function exitRansom(){
+  ransomScreen.style.display = 'none';
+  ransomScreen.setAttribute('aria-hidden','true');
+  clearInterval(countdownInterval);
+  clearInterval(fileInterval);
+  fileListEl.textContent = '';
+  typingAudio.pause();
+  sirenAudio.pause();
+  try{ prankVideo.pause(); }catch(e){}
+  videoContainer.style.display = 'none';
+  stopVideoMovement();
+}
+
+/* modal helpers */
+function showModal(title, body){
+  modalTitle.textContent = title;
+  modalBody.textContent = body;
+  modal.style.display = 'flex';
+  modal.setAttribute('aria-hidden','false');
+}
+function closeModal(){
+  modal.style.display = 'none';
+  modal.setAttribute('aria-hidden','true');
+}
+
+/* key handlers */
+window.addEventListener('keydown', (e) => {
+  if(e.key === 'Escape'){
+    if(modal.style.display === 'flex'){ closeModal(); return; }
+    if(ransomScreen.style.display === 'block'){ exitRansom(); return; }
+  }
+});
+
+/* pause audio on visibility change */
+document.addEventListener('visibilitychange', () => {
+  if(document.hidden){
+    try{ prankVideo.pause(); }catch(e){}
+    typingAudio.pause();
+    sirenAudio.pause();
+  } else {
+    // resume ambient if ransomScreen active
+    if(ransomScreen.style.display === 'block'){
+      tryPlayAudio(typingAudio);
+      tryPlayAudio(sirenAudio);
+      try{ prankVideo.play().catch(()=>{}); }catch(e){}
+    }
+  }
+});
+
+/* ensure video container positioned initially (after layout) */
+window.addEventListener('load', () => {
+  // place offscreen initially
+  videoContainer.style.left = (window.innerWidth - videoContainer.offsetWidth - 24) + 'px';
+  videoContainer.style.top = (24) + 'px';
+});
+
+/* keep video position responsive on resize */
+window.addEventListener('resize', () => {
+  // reposition to ensure inside bounds
+  if(videoContainer.style.display === 'block'){
+    positionVideoRandom();
+  }
+});
+</script>
+</body>
+</html>
